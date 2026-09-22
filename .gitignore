@@ -140,3 +140,7 @@ gradle-app.setting
 hs_err_pid*
 
 allure-results/
+
+# Gradle
+build/
+.gradle/

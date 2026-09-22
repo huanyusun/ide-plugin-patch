@@ -181,7 +181,7 @@ public class LoginPanel extends DialogWrapper {
                         @Override
                         public boolean visit(CefCookie cefCookie, int count, int total, BoolRef boolRef) {
 
-                            if (cefCookie.domain.contains("leetcode")) {
+                            if (cefCookie.domain.contains("leetcode") || cefCookie.domain.contains(URLUtils.getLeetcodeHost())) {
                                 HttpCookie cookie = new HttpCookie(cefCookie.name, cefCookie.value);
                                 cookie.setDomain(cefCookie.domain);
                                 cookie.setPath(cefCookie.path);

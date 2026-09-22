@@ -1,3 +1,19 @@
+# Leetcode Editor — 私有反代 fork
+
+> **这是 [shuzijun/leetcode-editor](https://github.com/shuzijun/leetcode-editor) 的私有 fork(Apache-2.0)**,做了最小改动:
+> 在插件设置中选择 `leetcode.cn` 时,所有请求实际经由自托管反向代理域名(`lc.f2b.me`,VPS nginx 反代 leetcode.cn)发出,以隐藏真实的 leetcode 访问。国内站逻辑(中文题面、登录流程、GraphQL 变体)全部保持不变。
+>
+> **改动清单**(相对上游 master):
+> - `URLUtils` — 新增 `leetcodecnProxy` 常量;`getLeetcodeHost()` 将国内站选择重定向到代理域名;`equalsHost()` 对代理域名做国内站归一化
+> - `LoginPanel` — Cookie 登录抓取时同时识别代理域名下的 cookie
+> - `SentryUtils` — 剥离遥测,不再向 sentry.io 上报任何错误/配置
+> - `deploy/` — VPS nginx 反代一键部署脚本(80 ACME + SNI 分发复用 + `proxy_cookie_domain` / `sub_filter` 域名重写)
+>
+> 构建:`./gradlew buildPlugin`,产物在 `build/distributions/`,IDEA `Install Plugin from Disk` 安装。
+> 单测:`./gradlew test --tests URLUtilsTest`。
+>
+> ---
+
 # [![Leetcode Editor][plugin-logo]][gh:leetcode-editor] Leetcode Editor
 
 [![Release][badge:release]][gh:releases]

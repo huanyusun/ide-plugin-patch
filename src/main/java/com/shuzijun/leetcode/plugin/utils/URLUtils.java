@@ -12,6 +12,10 @@ public class URLUtils {
     public static final String leetcode = "leetcode.com";
     public static final String leetcodecn = "leetcode.cn";
     public static final String leetcodecnOld = "leetcode-cn.com";
+    /**
+     * 自托管反向代理域名:选国内站时实际请求走此地址,其余逻辑(中文内容/国内登录流程)不受影响。
+     */
+    public static final String leetcodecnProxy = "lc.f2b.me";
 
     private static String leetcodeUrl = "https://";
     private static String leetcodeLogin = "/accounts/login/";
@@ -38,11 +42,17 @@ public class URLUtils {
         if (StringUtils.isBlank(host)) {
             return leetcode;
         }
+        if (leetcodecn.equals(host) || leetcodecnOld.equals(host)) {
+            return leetcodecnProxy;
+        }
         return host;
     }
 
     public static boolean equalsHost(String host) {
         String thisHost = getLeetcodeHost();
+        if (leetcodecnProxy.equals(thisHost)) {
+            thisHost = leetcodecn;
+        }
         if(thisHost.equals(host)){
             return true;
         }else if(thisHost.equals(leetcodecn) && leetcodecnOld.equals(host)){
