@@ -35,10 +35,11 @@ public class DefaultCookieLoginStrategyTest {
             assertEquals(2, cookies.size());
             assertEquals("csrftoken", cookies.get(0).getName());
             assertEquals("token", cookies.get(0).getValue());
-            assertEquals(".leetcode.cn", cookies.get(0).getDomain());
+            // fork:国内站选择经私有反代,cookie domain 跟随代理域名
+            assertEquals("." + com.shuzijun.leetcode.plugin.utils.URLUtils.leetcodecnProxy, cookies.get(0).getDomain());
             assertEquals("LEETCODE_SESSION", cookies.get(1).getName());
             assertEquals("session=value", cookies.get(1).getValue());
-            assertEquals(".leetcode.cn", cookies.get(1).getDomain());
+            assertEquals("." + com.shuzijun.leetcode.plugin.utils.URLUtils.leetcodecnProxy, cookies.get(1).getDomain());
             assertEquals("/", cookies.get(1).getPath());
         } finally {
             Disposer.dispose(disposable);

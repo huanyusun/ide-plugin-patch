@@ -1,5 +1,6 @@
 package com.shuzijun.leetcode.plugin.product;
 
+import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.shuzijun.leetcode.plugin.setting.PersistentConfig;
@@ -112,8 +113,22 @@ public abstract class ProductServiceProvider {
         return noteContentStrategy;
     }
 
+    private PersistentConfig testPersistentConfig;
+
     public final PersistentConfig persistentConfig() {
-        return ApplicationManager.getApplication().getService(persistentConfigClass);
+        Application application = ApplicationManager.getApplication();
+        if (application == null) {
+            // 纯单测环境(无 IDE 平台容器):反射实例化并缓存,保证测试内单例一致
+            if (testPersistentConfig == null) {
+                try {
+                    testPersistentConfig = persistentConfigClass.getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException("无法实例化 " + persistentConfigClass, e);
+                }
+            }
+            return testPersistentConfig;
+        }
+        return application.getService(persistentConfigClass);
     }
 
     public final ProjectConfig projectConfig(Project project) {
