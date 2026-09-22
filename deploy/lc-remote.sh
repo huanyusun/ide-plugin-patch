@@ -1,23 +1,8 @@
 #!/bin/bash
-# lc.f2b.me 反代部署(root 在 VPS 上执行)
-# 步骤:stream map 加条目 → webroot → 80 ACME conf → certbot 签证书 → 10444 ssl 反代块 → 验证
+# 修复 lc.f2b.me 资源子域加载(精确映射子域到主域路径)+ robots.txt 拒爬虫
 set -e
-echo "==> 0. 直连 leetcode.cn 连通性"
-curl -s -o /dev/null -w "direct leetcode.cn: %{http_code} %{time_total}s\n" --max-time 10 https://leetcode.cn/
-
-echo "==> 1. stream map 加 lc.f2b.me"
-if ! grep -q "lc.f2b.me" /etc/nginx/nginx.conf; then
-  sed -i 's|        artifacts.f2b.me nginx_web;|        artifacts.f2b.me nginx_web;\n        lc.f2b.me    nginx_web;|' /etc/nginx/nginx.conf
-fi
-grep -n "lc.f2b.me" /etc/nginx/nginx.conf
-
-echo "==> 2. webroot 目录"
-mkdir -p /var/www/lc/.well-known/acme-challenge
-chown -R bryan:bryan /var/www/lc
-
-echo "==> 3. 写 80 ACME conf"
 cat > /etc/nginx/conf.d/lc.conf <<'CONF'
-# lc.f2b.me — leetcode 私有反代(80 ACME + 10444 SNI web;443 由 stream 层 SNI 分发)
+# lc.f2b.me — 私有反代(80 ACME + 10444 SNI web;443 由 stream 层 SNI 分发)
 server {
     listen 80;
     listen [::]:80;
@@ -27,23 +12,15 @@ server {
         root /var/www/lc;
     }
 
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
     location / {
         return 301 https://$host$request_uri;
     }
 }
-CONF
-nginx -t
-systemctl reload nginx
-
-echo "==> 4. 签发证书"
-if [ ! -d "/etc/letsencrypt/live/lc.f2b.me" ]; then
-  certbot certonly --webroot -w /var/www/lc -d lc.f2b.me --non-interactive --agree-tos 2>&1 | tail -6
-fi
-test -f /etc/letsencrypt/live/lc.f2b.me/fullchain.pem || { echo "证书签发失败"; exit 1; }
-echo "证书 OK"
-
-echo "==> 5. 追加 10444 ssl 反代块"
-cat >> /etc/nginx/conf.d/lc.conf <<'CONF'
 
 server {
     listen 127.0.0.1:10444 ssl;
@@ -56,6 +33,61 @@ server {
 
     access_log /var/log/nginx/lc.f2b.me.access.log;
 
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
+    # ---- 资源子域:static / assets / pic / e ----
+    location /__static/ {
+        proxy_pass https://static.leetcode.cn/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name static.leetcode.cn;
+        proxy_set_header Host static.leetcode.cn;
+        proxy_set_header Referer "https://leetcode.cn/";
+        proxy_set_header Accept-Encoding "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+    location /__assets/ {
+        proxy_pass https://assets.leetcode.cn/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name assets.leetcode.cn;
+        proxy_set_header Host assets.leetcode.cn;
+        proxy_set_header Referer "https://leetcode.cn/";
+        proxy_set_header Accept-Encoding "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+    location /__pic/ {
+        proxy_pass https://pic.leetcode.cn/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name pic.leetcode.cn;
+        proxy_set_header Host pic.leetcode.cn;
+        proxy_set_header Referer "https://leetcode.cn/";
+        proxy_set_header Accept-Encoding "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+    location /__e/ {
+        proxy_pass https://e.leetcode.cn/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name e.leetcode.cn;
+        proxy_set_header Host e.leetcode.cn;
+        proxy_set_header Accept-Encoding "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 30s;
+    }
+
+    # ---- 主站反代 ----
     location / {
         proxy_pass https://leetcode.cn;
         proxy_http_version 1.1;
@@ -70,7 +102,24 @@ server {
         proxy_set_header Accept-Encoding "";
         proxy_cookie_domain leetcode.cn lc.f2b.me;
         proxy_redirect https://leetcode.cn/ https://lc.f2b.me/;
-        sub_filter "leetcode.cn" "lc.f2b.me";
+        proxy_redirect https://www.leetcode.cn/ https://lc.f2b.me/;
+        # 资源子域 → 主域代理路径(JSON 转义斜杠形式单独覆盖)
+        sub_filter 'https://static.leetcode.cn/'  'https://lc.f2b.me/__static/';
+        sub_filter '//static.leetcode.cn/'         '/__static/';
+        sub_filter 'https:\/\/static.leetcode.cn\/'  'https:\/\/lc.f2b.me\/__static\/';
+        sub_filter 'https://assets.leetcode.cn/'   'https://lc.f2b.me/__assets/';
+        sub_filter '//assets.leetcode.cn/'         '/__assets/';
+        sub_filter 'https:\/\/assets.leetcode.cn\/'  'https:\/\/lc.f2b.me\/__assets\/';
+        sub_filter 'https://pic.leetcode.cn/'      'https://lc.f2b.me/__pic/';
+        sub_filter '//pic.leetcode.cn/'            '/__pic/';
+        sub_filter 'https:\/\/pic.leetcode.cn\/'  'https:\/\/lc.f2b.me\/__pic\/';
+        sub_filter 'https://e.leetcode.cn/'        'https://lc.f2b.me/__e/';
+        sub_filter '//e.leetcode.cn/'              '/__e/';
+        sub_filter 'https://leetcode.cn/'          'https://lc.f2b.me/';
+        sub_filter 'https:\/\/leetcode.cn\/'       'https:\/\/lc.f2b.me\/';
+        sub_filter 'https://leetcode.cn?'          'https://lc.f2b.me?';
+        sub_filter 'https://leetcode.cn"'          'https://lc.f2b.me"';
+        sub_filter 'https:\/\/leetcode.cn?'        'https:\/\/lc.f2b.me?';
         sub_filter_once off;
         sub_filter_types text/html application/json;
         proxy_connect_timeout 10s;
@@ -79,13 +128,10 @@ server {
     }
 }
 CONF
-nginx -t
-systemctl reload nginx
-
-echo "==> 6. 验证"
-sleep 1
-ss -ltn | grep ":443 "
-curl -s -o /dev/null -w "graphql via proxy: %{http_code} %{time_total}s\n" --max-time 20 \
-  -X POST https://lc.f2b.me/graphql -H "Content-Type: application/json" \
-  -d '{"query":"query{now}"}'
+nginx -t && systemctl reload nginx
+echo "==> 验证"
+curl -s --max-time 15 https://lc.f2b.me/ | grep -c "lc\.f2b\.me/__static" && echo "子域映射 OK" || echo "警告:首页未出现 __static 引用(可能当前页面模板无引用)"
+BAD=$(curl -s --max-time 15 https://lc.f2b.me/ | grep -c "static\.lc\.f2b\.me\|assets\.lc\.f2b\.me\|pic\.lc\.f2b\.me" || true)
+echo "坏子域引用残留: $BAD"
+curl -s -o /dev/null -w "robots.txt: %{http_code}\n" https://lc.f2b.me/robots.txt
 echo "==> DONE"

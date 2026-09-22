@@ -64,4 +64,16 @@ public class URLUtilsTest {
         assertFalse(URLUtils.isCn());
         assertTrue(URLUtils.equalsHost(URLUtils.leetcode));
     }
+
+    @Test
+    public void treatsManuallyEnteredProxyHostAsCnSelection() {
+        System.clearProperty("leetcode.test.base.url");
+        Config config = new Config();
+        config.setUrl(URLUtils.leetcodecnProxy);
+        PersistentConfig.getInstance().setInitConfig(config);
+
+        assertEquals(URLUtils.leetcodecnProxy, URLUtils.getLeetcodeHost());
+        assertTrue(URLUtils.isCn());
+        assertTrue(URLUtils.equalsHost(URLUtils.leetcodecn));
+    }
 }

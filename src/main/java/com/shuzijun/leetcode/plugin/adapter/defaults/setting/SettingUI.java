@@ -101,6 +101,7 @@ public class SettingUI {
 
         webComboBox.addItem(URLUtils.leetcodecn);
         webComboBox.addItem(URLUtils.leetcode);
+        webComboBox.setEditable(true);
 
         for (CodeTypeEnum c : CodeTypeEnum.values()) {
             codeComboBox.addItem(c.getType());

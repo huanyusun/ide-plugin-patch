@@ -42,7 +42,7 @@ public class URLUtils {
         if (StringUtils.isBlank(host)) {
             return leetcode;
         }
-        if (leetcodecn.equals(host) || leetcodecnOld.equals(host)) {
+        if (leetcodecn.equals(host) || leetcodecnOld.equals(host) || leetcodecnProxy.equals(host)) {
             return leetcodecnProxy;
         }
         return host;
